@@ -47,14 +47,32 @@ import java.util.Map;
  * <p>When not used in a {@link ServerBootstrap} context, the {@link #bind()} methods are useful for connectionless
  * transports such as datagram (UDP).</p>
  */
-public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C extends Channel> implements Cloneable {
-
+public abstract class
+AbstractBootstrap<B extends AbstractBootstrap<B, C>, C extends Channel> implements Cloneable {
+    /**
+     * EventLoopGroup对象
+     */
     volatile EventLoopGroup group;
     @SuppressWarnings("deprecation")
+    /**
+     * channel 工厂， 用于创建channel对象
+     */
     private volatile ChannelFactory<? extends C> channelFactory;
+    /**
+     * 本地地址
+     */
     private volatile SocketAddress localAddress;
+    /**
+     * 可选项集合
+     */
     private final Map<ChannelOption<?>, Object> options = new LinkedHashMap<ChannelOption<?>, Object>();
+    /**
+     * 属性集合
+     */
     private final Map<AttributeKey<?>, Object> attrs = new LinkedHashMap<AttributeKey<?>, Object>();
+    /**
+     * 处理器
+     */
     private volatile ChannelHandler handler;
 
     AbstractBootstrap() {
@@ -191,11 +209,11 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         if (key == null) {
             throw new NullPointerException("key");
         }
-        if (value == null) {
+        if (value == null) {// 空，意味着移除
             synchronized (attrs) {
                 attrs.remove(key);
             }
-        } else {
+        } else {//非空，进行修改
             synchronized (attrs) {
                 attrs.put(key, value);
             }
@@ -271,6 +289,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
      * Create a new {@link Channel} and bind it.
      */
     public ChannelFuture bind(SocketAddress localAddress) {
+        // 校验服务启动需要的必要参数
         validate();
         if (localAddress == null) {
             throw new NullPointerException("localAddress");
@@ -279,16 +298,17 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
     }
 
     private ChannelFuture doBind(final SocketAddress localAddress) {
+        // 初始化并注册一个channel对象，因为注册时是一个异步过程，所以返回一个ChannelFuture对象。
         final ChannelFuture regFuture = initAndRegister();
         final Channel channel = regFuture.channel();
-        if (regFuture.cause() != null) {
+        if (regFuture.cause() != null) {// 若发生异常，直接进行返回
             return regFuture;
         }
-
+        //绑定 Channel 的端口，并注册Channel到SelectionKey中
         if (regFuture.isDone()) {
             // At this point we know that the registration was complete and successful.
             ChannelPromise promise = channel.newPromise();
-            doBind0(regFuture, channel, localAddress, promise);
+            doBind0(regFuture, channel, localAddress, promise);//绑定
             return promise;
         } else {
             // Registration future is almost always fulfilled already, but just in case it's not.
@@ -314,6 +334,10 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         }
     }
 
+    /**
+     *
+     * @return
+     */
     final ChannelFuture initAndRegister() {
         Channel channel = null;
         try {
