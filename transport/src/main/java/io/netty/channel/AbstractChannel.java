@@ -54,9 +54,17 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             new ClosedChannelException(), AbstractUnsafe.class, "write(...)");
     private static final NotYetConnectedException FLUSH0_NOT_YET_CONNECTED_EXCEPTION = ThrowableUtil.unknownStackTrace(
             new NotYetConnectedException(), AbstractUnsafe.class, "flush0()");
-
+    /**
+     * 父 Channel 对象
+     */
     private final Channel parent;
+    /**
+     * Channel 编号
+     */
     private final ChannelId id;
+    /**
+     *
+     */
     private final Unsafe unsafe;
     private final DefaultChannelPipeline pipeline;
     private final VoidChannelPromise unsafeVoidPromise = new VoidChannelPromise(this, false);
@@ -461,21 +469,26 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
         @Override
         public final void register(EventLoop eventLoop, final ChannelPromise promise) {
+            //校验传入的 eventLoop 非空
             if (eventLoop == null) {
                 throw new NullPointerException("eventLoop");
             }
+            // 校验未注册
             if (isRegistered()) {
                 promise.setFailure(new IllegalStateException("registered to an event loop already"));
                 return;
             }
+
+            //校验 Channel 和 eventLoop 匹配
             if (!isCompatible(eventLoop)) {
                 promise.setFailure(
                         new IllegalStateException("incompatible event loop type: " + eventLoop.getClass().getName()));
                 return;
             }
-
+            //设置 Channel 的 eventLoop 属性
             AbstractChannel.this.eventLoop = eventLoop;
 
+            //在 EventLoop 中执行注册逻辑
             if (eventLoop.inEventLoop()) {
                 register0(promise);
             } else {
@@ -501,19 +514,27 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             try {
                 // check if the channel is still open as it could be closed in the mean time when the register
                 // call was outside of the eventLoop
-                if (!promise.setUncancellable() || !ensureOpen(promise)) {
+                if (!promise.setUncancellable() || !ensureOpen(promise)) {// 确保 Channel 是打开的
                     return;
                 }
+                //记录是否为首次注册
                 boolean firstRegistration = neverRegistered;
+                //执行注册逻辑
                 doRegister();
+
+                //标记首次注册为false
                 neverRegistered = false;
+                //标记channel为已注册
                 registered = true;
 
                 // Ensure we call handlerAdded(...) before we actually notify the promise. This is needed as the
                 // user may already fire events through the pipeline in the ChannelFutureListener.
                 pipeline.invokeHandlerAddedIfNeeded();
 
+                // 回调通知 “promise” 执行成功
                 safeSetSuccess(promise);
+
+                // 触发通知已注册时间
                 pipeline.fireChannelRegistered();
                 // Only fire a channelActive if the channel has never been registered. This prevents firing
                 // multiple channel actives if the channel is deregistered and re-registered.

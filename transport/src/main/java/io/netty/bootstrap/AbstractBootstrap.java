@@ -335,16 +335,19 @@ AbstractBootstrap<B extends AbstractBootstrap<B, C>, C extends Channel> implemen
     }
 
     /**
-     *
+     * 初始化并注册一个Channel对象，并返回一个ChannelFuture对象。
      * @return
      */
     final ChannelFuture initAndRegister() {
         Channel channel = null;
         try {
+            // 创建 Channel 对象
             channel = channelFactory.newChannel();
+            // 初始化 Channel 配置
+            // 初始化 Channel 配置
             init(channel);
         } catch (Throwable t) {
-            if (channel != null) {
+            if (channel != null) { // 已创建 Channel 对象
                 // channel can be null if newChannel crashed (eg SocketException("too many open files"))
                 channel.unsafe().closeForcibly();
                 // as the Channel is not registered yet we need to force the usage of the GlobalEventExecutor
@@ -353,13 +356,13 @@ AbstractBootstrap<B extends AbstractBootstrap<B, C>, C extends Channel> implemen
             // as the Channel is not registered yet we need to force the usage of the GlobalEventExecutor
             return new DefaultChannelPromise(new FailedChannel(), GlobalEventExecutor.INSTANCE).setFailure(t);
         }
-
+        // 注册 Channel 到 EventLoopGroup 中
         ChannelFuture regFuture = config().group().register(channel);
         if (regFuture.cause() != null) {
             if (channel.isRegistered()) {
                 channel.close();
             } else {
-                channel.unsafe().closeForcibly();
+                channel.unsafe().closeForcibly(); // 强制关闭 Channel
             }
         }
 
@@ -387,7 +390,9 @@ AbstractBootstrap<B extends AbstractBootstrap<B, C>, C extends Channel> implemen
             @Override
             public void run() {
                 if (regFuture.isSuccess()) {
+                    //注册成功，绑定端口
                     channel.bind(localAddress, promise).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
+                //注册失败，回调通知 promise 异常
                 } else {
                     promise.setFailure(regFuture.cause());
                 }
