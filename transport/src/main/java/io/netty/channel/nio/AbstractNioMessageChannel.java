@@ -64,7 +64,9 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
             assert eventLoop().inEventLoop();
             final ChannelConfig config = config();
             final ChannelPipeline pipeline = pipeline();
+            // 获得 RecvByteBufAllocator.Handle对象
             final RecvByteBufAllocator.Handle allocHandle = unsafe().recvBufAllocHandle();
+           //重置 RecvByteBufAllocator.Handle 对象
             allocHandle.reset(config);
 
             boolean closed = false;
@@ -72,28 +74,35 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
             try {
                 try {
                     do {
+                        // 读取客户端的连接到 readBuf
                         int localRead = doReadMessages(readBuf);
+                        //无可读取的连接，结束
                         if (localRead == 0) {
                             break;
                         }
+                        // 读取出错
                         if (localRead < 0) {
-                            closed = true;
+                            closed = true; // 标记关闭
                             break;
                         }
-
+                        // 读取消息数量 + localRead
                         allocHandle.incMessagesRead(localRead);
-                    } while (allocHandle.continueReading());
+                    } while (allocHandle.continueReading());// 循环判断是否继续读取
                 } catch (Throwable t) {
+                    // 记录异常
                     exception = t;
                 }
-
+                // 循环 readBuf 数组，触发Channel read 事件到 pipeline中
                 int size = readBuf.size();
                 for (int i = 0; i < size; i ++) {
                     readPending = false;
                     pipeline.fireChannelRead(readBuf.get(i));
                 }
+                // 清空 readBuf 数组
                 readBuf.clear();
+                // 读取完成
                 allocHandle.readComplete();
+                // 触发 Channel ReadComplete 事件到 pipeline中
                 pipeline.fireChannelReadComplete();
 
                 if (exception != null) {

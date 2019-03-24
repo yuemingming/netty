@@ -113,15 +113,19 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
         private void handleReadException(ChannelPipeline pipeline, ByteBuf byteBuf, Throwable cause, boolean close,
                 RecvByteBufAllocator.Handle allocHandle) {
             if (byteBuf != null) {
-                if (byteBuf.isReadable()) {
+                if (byteBuf.isReadable()) {// 如果读取数据成功
                     readPending = false;
+                    // 触发 Channel read 事件到 pipeline 中
                     pipeline.fireChannelRead(byteBuf);
                 } else {
-                    byteBuf.release();
+                    byteBuf.release(); // 释放 ByteBuf 对象
                 }
             }
+            // 读取完成
             allocHandle.readComplete();
+            // 触发 Channel readComplete 事件到 pipeline 中
             pipeline.fireChannelReadComplete();
+            // 触发 exceptionCaught 事件到 pipeline 中。
             pipeline.fireExceptionCaught(cause);
             if (close || cause instanceof IOException) {
                 closeOnRead(pipeline);
@@ -133,25 +137,35 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
         @Override
         public final void read() {
             final ChannelConfig config = config();
+            // 若 inputClosedSeenErrorOnRead = true,移除对 SelectionKey.OP_READ 事件的感兴趣。
             if (shouldBreakReadReady(config)) {
                 clearReadPending();
                 return;
             }
             final ChannelPipeline pipeline = pipeline();
             final ByteBufAllocator allocator = config.getAllocator();
+            // 获得 RecvByteBuffAllocator.Handle 对象
             final RecvByteBufAllocator.Handle allocHandle = recvBufAllocHandle();
+            // 重置 RecvByteBufAllocator.Handler 对象
             allocHandle.reset(config);
 
             ByteBuf byteBuf = null;
-            boolean close = false;
+            boolean close = false;// 是否关闭连接
             try {
                 do {
+                    // 申请 ByteBuf 对象
                     byteBuf = allocHandle.allocate(allocator);
+                    // 读取数据
+                    // 设置最后读取字节数
                     allocHandle.lastBytesRead(doReadBytes(byteBuf));
+                    // 未能读取到数据
                     if (allocHandle.lastBytesRead() <= 0) {
                         // nothing was read. release the buffer.
+                        // 释放 ByteBuf 对象
                         byteBuf.release();
+                        // 置空 ByteBuf 对象
                         byteBuf = null;
+                        // 如果最后读取的字节小于 0， 说明对端已经关闭。
                         close = allocHandle.lastBytesRead() < 0;
                         if (close) {
                             // There is nothing left to read as we received an EOF.
@@ -159,22 +173,27 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
                         }
                         break;
                     }
-
+                    // 读取到数据
+                    // 读取消息数量 + localRead
                     allocHandle.incMessagesRead(1);
                     readPending = false;
+                    // 触发 Channel readComplete 事件到 pipeline 中。
                     pipeline.fireChannelRead(byteBuf);
+                    // 置空 ByteBuf 对象
                     byteBuf = null;
-                } while (allocHandle.continueReading());
-
+                } while (allocHandle.continueReading());// 循环判断是否继续读取
+                // 读取完成
                 allocHandle.readComplete();
+                // 触发 Channel readComplete 事件到 pipeline 中
                 pipeline.fireChannelReadComplete();
-
+                // 关闭客户端连接
                 if (close) {
                     closeOnRead(pipeline);
                 } else {
                     readIfIsAutoRead();
                 }
             } catch (Throwable t) {
+                // 发生异常，处理异常
                 handleReadException(pipeline, byteBuf, t, close, allocHandle);
             } finally {
                 // Check if there is a readPending which was not processed yet.
@@ -270,27 +289,31 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
 
     @Override
     protected final Object filterOutboundMessage(Object msg) {
+        // ByteBuf 的情况
         if (msg instanceof ByteBuf) {
             ByteBuf buf = (ByteBuf) msg;
+            // 已经是内存 ByteBuf
             if (buf.isDirect()) {
                 return msg;
             }
-
+            // 非内存 ByteBuf ，则需要进行封装创建
             return newDirectBuffer(buf);
         }
-
+        // FileRegion 的情况
         if (msg instanceof FileRegion) {
             return msg;
         }
-
+        // 不支持其他类型
         throw new UnsupportedOperationException(
                 "unsupported message type: " + StringUtil.simpleClassName(msg) + EXPECTED_TYPES);
     }
 
     protected final void incompleteWrite(boolean setOpWrite) {
         // Did not write completely.
+        // true，注册对 SelectionKey.OP_WRITE 事件感兴趣
         if (setOpWrite) {
             setOpWrite();
+            //false，取消对 SelectionKey.OP_WRITE 事件感兴趣
         } else {
             // It is possible that we have set the write OP, woken up by NIO because the socket is writable, and then
             // use our write quantum. In this case we no longer want to set the write OP because the socket is still
@@ -299,6 +322,7 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
             clearOpWrite();
 
             // Schedule flush again later so other tasks can be picked up in the meantime
+            // 立即发起下一次 flush 任务
             eventLoop().execute(flushTask);
         }
     }
@@ -342,10 +366,11 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
         // Check first if the key is still valid as it may be canceled as part of the deregistration
         // from the EventLoop
         // See https://github.com/netty/netty/issues/2104
-        if (!key.isValid()) {
+        if (!key.isValid()) {// 合法
             return;
         }
         final int interestOps = key.interestOps();
+        // 若注册了 SelectionKey.OP_WRITE ，则进行取消
         if ((interestOps & SelectionKey.OP_WRITE) != 0) {
             key.interestOps(interestOps & ~SelectionKey.OP_WRITE);
         }

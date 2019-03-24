@@ -370,7 +370,8 @@ public abstract class AbstractNioChannel extends AbstractChannel {
 
         private boolean isFlushPending() {
             SelectionKey selectionKey = selectionKey();
-            return selectionKey.isValid() && (selectionKey.interestOps() & SelectionKey.OP_WRITE) != 0;
+            return selectionKey.isValid()// 合法
+            && (selectionKey.interestOps() & SelectionKey.OP_WRITE) != 0;//对 SelectionKey.OP_WRITE 事件不感兴趣
         }
     }
 
@@ -503,13 +504,14 @@ public abstract class AbstractNioChannel extends AbstractChannel {
 
     @Override
     protected void doClose() throws Exception {
+        // 通知 connectPromise 异常失败
         ChannelPromise promise = connectPromise;
         if (promise != null) {
             // Use tryFailure() instead of setFailure() to avoid the race against cancel().
             promise.tryFailure(DO_CLOSE_CLOSED_CHANNEL_EXCEPTION);
             connectPromise = null;
         }
-
+        // 取消 connectTimeoutFuture 等待
         ScheduledFuture<?> future = connectTimeoutFuture;
         if (future != null) {
             future.cancel(false);

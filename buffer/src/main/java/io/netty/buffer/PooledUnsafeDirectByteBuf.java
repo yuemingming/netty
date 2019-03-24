@@ -287,7 +287,7 @@ final class PooledUnsafeDirectByteBuf extends PooledByteBuf<ByteBuffer> {
         try {
             return in.read(tmpBuf);
         } catch (ClosedChannelException ignored) {
-            return -1;
+            return -1;//如果已经断开，返回-1
         }
     }
 

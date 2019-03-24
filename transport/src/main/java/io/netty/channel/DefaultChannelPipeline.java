@@ -55,7 +55,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
      */
     private static final String TAIL_NAME = generateName0(TailContext.class);
     /**
-     * 名字{@link AbstractChannelHandlerContext#name} 缓存，基于 ThreadLocal ，用于生成
+     * 名字{@link AbstractChannelHandlerContext #name} 缓存，基于 ThreadLocal ，用于生成
      * 在线程中的唯一名字
      */
     private static final FastThreadLocal<Map<Class<?>, String>> nameCaches =
@@ -100,7 +100,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
     /**
      * 字执行器集合
      * 默认情况下，ChannelHandler 使用Channel 所在的EventLoop 作为执行器
-     * 但是如果有需要，也可以自定义执行器。详细解析键，{@link #childExecutors(EventExecutorGroup)}
+     * 但是如果有需要，也可以自定义执行器。详细解析键
      * 实际情况下，基本不会用到。
      */
     private Map<EventExecutorGroup, EventExecutor> childExecutors;
@@ -1528,7 +1528,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
         @Override
         public void channelActive(ChannelHandlerContext ctx) throws Exception {
-            // 传播 Channel active 事件给下一个 Inbound 节点
+            // 传播 Channel Active 激活事件
             ctx.fireChannelActive();
         }
 
